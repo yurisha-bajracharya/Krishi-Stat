@@ -1,4 +1,5 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 
 def load_data(csv_path):
     """Loads and preprocesses agricultural data from CSV."""
