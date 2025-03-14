@@ -1,5 +1,4 @@
 import pandas as pd
-import matplotlib.pyplot as plt
 
 def load_data(csv_path):
     """Loads and preprocesses agricultural data from CSV."""
@@ -7,29 +6,17 @@ def load_data(csv_path):
     
     df["DISTRICT_NAME"] = df["DISTRICT_NAME"].str.upper().str.strip()
     df["DISTRICT_CODE"] = df["DISTRICT_CODE"].astype(str).str.zfill(2)
-
-    # Extract year columns
-    yield_cols = [col for col in df.columns if "_Y_" in col]
-    prod_cols = [col for col in df.columns if "_P_" in col]
-    area_cols = [col for col in df.columns if "_A_" in col]
     
-    df_yield = df.melt(id_vars=["DISTRICT_CODE", "DISTRICT_NAME"], 
-                        value_vars=yield_cols, 
-                        var_name="Year", value_name="Yield")
-    df_yield["Year"] = df_yield["Year"].str.extract(r'(\d{6})')
-
-    df_prod = df.melt(id_vars=["DISTRICT_CODE", "DISTRICT_NAME"], 
-                       value_vars=prod_cols, 
-                       var_name="Year", value_name="Production")
-    df_prod["Year"] = df_prod["Year"].str.extract(r'(\d{6})')
-
-    df_area = df.melt(id_vars=["DISTRICT_CODE", "DISTRICT_NAME"], 
-                       value_vars=area_cols, 
-                       var_name="Year", value_name="Area")
-    df_area["Year"] = df_area["Year"].str.extract(r'(\d{6})')
-
-    # Merge all
-    df_merged = df_yield.merge(df_prod, on=["DISTRICT_CODE", "DISTRICT_NAME", "Year"])
-    df_merged = df_merged.merge(df_area, on=["DISTRICT_CODE", "DISTRICT_NAME", "Year"])
-
-    return df_merged
+    # Extract crop names and year columns
+    df_long = pd.melt(df, id_vars=["DISTRICT_CODE", "DISTRICT_NAME"], var_name="Variable", value_name="Value")
+    df_long["Crop"] = df_long["Variable"].str.split('_').str[0]  # Extract crop abbreviation
+    df_long["Metric"] = df_long["Variable"].str.split('_').str[1]  # Extract metric (Y, P, A)
+    df_long["Year"] = df_long["Variable"].str.extract(r'(\d{6})')
+    
+    # Pivot table to separate Yield, Production, and Area
+    df_processed = df_long.pivot_table(index=["DISTRICT_CODE", "DISTRICT_NAME", "Crop", "Year"], 
+                                       columns="Metric", values="Value", aggfunc="first").reset_index()
+    df_processed.columns.name = None  # Remove the column name hierarchy
+    df_processed.rename(columns={"Y": "Yield", "P": "Production", "A": "Area"}, inplace=True)
+    
+    return df_processed
